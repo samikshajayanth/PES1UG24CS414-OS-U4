@@ -1,4 +1,3 @@
- cat > README.md << 'EOF'
 # PES-VCS — Version Control System
 **Author:** Samiksha Jayanth <PES1UG24CS414>
 
@@ -29,4 +28,3 @@ Start from all branch refs in `.pes/refs/heads/`. BFS through every reachable co
 
 ### Q6.2 — What race condition exists during GC and how is it avoided?
 GC marks objects as unreachable at time T. Meanwhile a commit in progress writes a blob at T+1 but hasn't yet written the tree/commit referencing it. GC deletes that blob at T+2. The commit then writes a tree pointing to a now-deleted blob — corruption. Git avoids this by never deleting objects newer than 2 weeks, and by using lock files so GC and commit cannot run simultaneously.
-EOF
