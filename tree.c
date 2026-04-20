@@ -15,6 +15,8 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include "index.h"
+
 
 // ─── Mode Constants ─────────────────────────────────────────────────────────
 
@@ -114,24 +116,88 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
     return 0;
 }
 
-// ─── TODO: Implement these ──────────────────────────────────────────────────
+#include "index.h"
 
-// Build a tree hierarchy from the current index and write all tree
-// objects to the object store.
-//
-// HINTS - Useful functions and concepts for this phase:
-//   - index_load      : load the staged files into memory
-//   - strchr          : find the first '/' in a path to separate directories from files
-//   - strncmp         : compare prefixes to group files belonging to the same subdirectory
-//   - Recursion       : you will likely want to create a recursive helper function 
-//                       (e.g., `write_tree_level(entries, count, depth)`) to handle nested dirs.
-//   - tree_serialize  : convert your populated Tree struct into a binary buffer
-//   - object_write    : save that binary buffer to the store as OBJ_TREE
-//
-// Returns 0 on success, -1 on error.
+// Recursive helper: builds a tree for entries that share a common prefix depth
+static int write_tree_level(IndexEntry *entries, int count, int depth, ObjectID *id_out) {
+    Tree tree;
+    tree.count = 0;
+
+    int i = 0;
+    while (i < count) {
+        const char *path = entries[i].path;
+
+        // Find the nth '/' (at current depth)
+        const char *p = path;
+        for (int d = 0; d < depth; d++) {
+            p = strchr(p, '/');
+            if (!p) return -1;
+            p++; // skip past the '/'
+        }
+
+        // Is there another '/' after this depth? → it's a subdirectory
+        const char *slash = strchr(p, '/');
+
+        if (!slash) {
+            // It's a file at this level
+            TreeEntry *e = &tree.entries[tree.count++];
+            e->mode = entries[i].mode;
+            e->hash = entries[i].hash;
+            strncpy(e->name, p, sizeof(e->name) - 1);
+            e->name[sizeof(e->name) - 1] = '\0';
+            i++;
+        } else {
+            // It's a subdirectory — find all entries sharing this dir prefix
+            size_t dir_len = slash - p;
+            char dir_name[256];
+            strncpy(dir_name, p, dir_len);
+            dir_name[dir_len] = '\0';
+
+            // Collect all entries belonging to this subdirectory
+            int j = i;
+            while (j < count) {
+                const char *pp = entries[j].path;
+                for (int d = 0; d < depth; d++) {
+                    pp = strchr(pp, '/');
+                    if (!pp) break;
+                    pp++;
+                }
+                if (!pp) break;
+                const char *sl = strchr(pp, '/');
+                if (!sl) break;
+                size_t dlen = sl - pp;
+                if (dlen != dir_len || strncmp(pp, dir_name, dir_len) != 0) break;
+                j++;
+            }
+
+            // Recurse into this subdirectory
+            ObjectID sub_id;
+            if (write_tree_level(entries + i, j - i, depth + 1, &sub_id) != 0)
+                return -1;
+
+            TreeEntry *e = &tree.entries[tree.count++];
+            e->mode = MODE_DIR;
+            e->hash = sub_id;
+            strncpy(e->name, dir_name, sizeof(e->name) - 1);
+            e->name[sizeof(e->name) - 1] = '\0';
+
+            i = j;
+        }
+    }
+
+    // Serialize and write this tree level
+    void *data;
+    size_t data_len;
+    if (tree_serialize(&tree, &data, &data_len) != 0) return -1;
+    int ret = object_write(OBJ_TREE, data, data_len, id_out);
+    free(data);
+    return ret;
+}
+
 int tree_from_index(ObjectID *id_out) {
-    // TODO: Implement recursive tree building
-    // (See Lab Appendix for logical steps)
-    (void)id_out;
-    return -1;
+    Index idx;
+    if (index_load(&idx) != 0) return -1;
+    if (idx.count == 0) return -1;
+
+    return write_tree_level(idx.entries, idx.count, 0, id_out);
 }
