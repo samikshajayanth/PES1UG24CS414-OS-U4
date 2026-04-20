@@ -23,6 +23,9 @@ make all
 ### Phase 2 Tests Passed
 ![2A](images/phase2.png)
 
+### Raw Tree Object 
+![2B](images/xxd.png)
+
 ### Status Output 
 ![3A](images/status.png)
 
