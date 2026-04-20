@@ -12,6 +12,33 @@ make all
 ./pes log
 ```
 
+## 📸 Screenshots
+
+### Phase 1 Tests Passed
+![1A](images/phase1.png)
+
+### Object Files In Store 
+![1B](images/obj.png)
+
+### Phase 2 Tests Passed
+![2A](images/phase2.png)
+
+### Status Output 
+![3A](images/status.png)
+
+### Raw Index File 
+![3B](images/index.png)
+
+### Commit Log 
+![4A](images/log.png)
+
+### All .pes files 
+![4B](images/sort.png)
+
+### HEAD and Branch Ref 
+![4C](images/head.png)
+
+
 ## Analysis Questions
 
 ### Q5.1 — How would you implement `pes checkout <branch>`?
